@@ -7,22 +7,29 @@ print_lock = threading.Lock()
 
 def send_msg(server, file_name):
     while True:
-        file_server = open(file_name + "_server.txt", "a")
+        file_server = open("data/" + file_name + "_server.txt", "a")
+        file_data = open("data/" + file_name + "_data.txt","a")
         msg = input("\n")
         server.send_msg(msg)
         file_server.write(msg + "\n")
+        file_data.write(msg + "\n")
         file_server.close()
+        file_data.close()
         
 def recieve_msg(server, file_name):
     while True:
-        file_client = open(file_name + "_client.txt", "a")
+        file_client = open("data/" + file_name + "_client.txt", "a")
+        file_data = open("data/" + file_name + "_data.txt", "a")
         msg = server.recieve_msg()
         if msg == "Nan":
             print_lock.release()
             file_client.close()
+            file_data.close()
             sys.exit()
         print("Client: " + msg)
         file_client.write(msg)
+        file_data.write("> " + msg)
+        file_data.close()
         file_client.close()
     
 
