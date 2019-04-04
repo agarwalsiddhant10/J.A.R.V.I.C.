@@ -34,7 +34,7 @@ def chat(server, file_name):
         start_new_thread(recieve_msg,(server, file_name))
 
 def main():
-    host = 'localhost'
+    host = '10.145.234.243'
     port = 2003
 
     file_name = "Siddhant_Rajat_Happy" #<Server>_<Client>_<Emotion of the client>
