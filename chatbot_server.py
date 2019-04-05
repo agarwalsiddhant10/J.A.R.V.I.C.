@@ -7,6 +7,11 @@ import socket
 import struct 
 from _thread import *
 import threading 
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn import metrics
+import pickle
+from imdbReview import extract_words
 
 import argparse
 import os
@@ -14,11 +19,49 @@ import pickle
 import copy
 import sys
 import html
+import mysql.connector as ms
 
 from utils import TextLoader
 from model import Model
 
+
 print_lock = threading.Lock()
+
+
+##################
+
+# Load All Reviews in train and test datasets
+f = open('train.pkl', 'rb')
+reviews = pickle.load(f)
+f.close()
+
+f = open('test.pkl', 'rb')
+test = pickle.load(f)
+f.close()
+
+
+# Generate counts from text using a vectorizer.  
+# There are other vectorizers available, and lots of options you can set.
+# This performs our step of computing word counts.
+vectorizer = CountVectorizer()
+train_features = vectorizer.fit_transform([r for r in reviews[0]])
+test_features = vectorizer.transform([r for r in test[0]])
+
+# Fit a naive bayes model to the training data.
+# This will train the model using the word counts we computer, 
+#       and the existing classifications in the training set.
+nb = MultinomialNB()
+nb.fit(train_features, [int(r) for r in reviews[1]])
+
+# Now we can use the model to predict classifications for our test features.
+predictions = nb.predict(test_features)
+
+# Compute the error.  
+print(metrics.classification_report(test[1], predictions))
+print("accuracy: {0}".format(metrics.accuracy_score(test[1], predictions)))
+
+
+################################
 def main():
     assert sys.version_info >= (3, 3), \
     "Must be run in Python 3.3 or later. You are running {}".format(sys.version)
@@ -42,8 +85,53 @@ def main():
                        'higher is more pressure, 0.4 is probably as high as it can go without'
                        'noticeably degrading coherence;'
                        'set to <0 to disable relevance masking')
+
     args = parser.parse_args()
+   
     sample_main(args)
+
+def signup(cc,values):
+    name=values[0]
+    username=values[1]
+    password=values[2]
+    contact=values[3]
+    mydb = ms.connect(host="localhost",user="root",passwd="siddhant",database="JARVIC_USERS")
+    c=mydb.cursor()
+    c.execute("INSERT INTO USERS(NAME, USERNAME, PASSWORD, CONTACT) VALUES(\"" + name + "\",\"" + username + "\",\"" + password + "\",\"" + contact+ "\")")
+    threaded_send(cc, "Y")
+
+def login(cc,values):
+    username=values[0]
+    password=values[1]
+    mydb = ms.connect(host="localhost",user="root",passwd="siddhant",database="JARVIC_USERS")
+    c=mydb.cursor()
+    c.execute("SELECT PASSWORD FROM USERS WHERE USERNAME =\"" + username +"\"")
+    p=""
+    for x in c:
+        print(x)
+        p.append(x)
+    temp = p.split('\'')
+    if(temp[1]==password):
+        threaded_send(cc, "Y")
+    else:
+        threaded_send(cc, "N")
+    
+    
+
+def signup_login(s):
+    c, addr = s.accept() 
+    # lock acquired by client 
+    print('Connected to :', addr[0], ':', addr[1]) 
+    data = c.recv(1024) 
+    data = data[2:]
+    user_input = data.decode()
+    values=[]
+    values= user_input.split('$')
+    if(len(values)==4):
+        signup(c,values)
+    elif(len(values)==2):
+        login(c,values)
+    return c, addr
 
 def get_paths(input_path):
     if os.path.isfile(input_path):
@@ -86,6 +174,7 @@ def sample_main(args):
         # Restore the saved variables, replacing the initialized values.
         print("Restoring weights...")
         saver.restore(sess, model_path)
+        print("Weights restored!")
         chatbot(net, sess, chars, vocab, args.n, args.beam_width,
                 args.relevance, args.temperature, args.topn)
 
@@ -145,6 +234,21 @@ def threaded_receive(arg):
         data = data[2:]
         print("\n in threaded_recieve ") 
         user_input = data.decode()
+
+        sentences = []
+        sentence = data.decode()
+        if sentence == "exit":
+            print("\033[93mexit program ...\033[0m\n")
+            break
+        else:
+            sentences.append(sentence)
+            input_features = vectorizer.transform(extract_words(sentences))
+            prediction = nb.predict(input_features)
+            if prediction[0] == 1 :
+                print("---- \033[92mpositive\033[0m\n")
+            else:
+                print("---- \033[91mnegative\033[0m\n")
+
         user_command_entered, reset, states, relevance, temperature, topn, beam_width = process_user_command(
             user_input, states, relevance, temperature, topn, beam_width)
         if reset: states = initial_state_with_relevance_masking(net, sess, relevance)
@@ -185,12 +289,13 @@ def threaded_send(c, msg):
 
 def chatbot(net, sess, chars, vocab, max_length, beam_width, relevance, temperature, topn):
     
+    print("in chatbot")
     host = "10.145.234.243" 
 
     # reverse a port on your computer 
     # in our case it is 12345 but it 
     # can be anything 
-    port = 2000
+    port = 2004
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
     s.bind((host, port)) 
     print("socket binded to post", port) 
@@ -199,19 +304,17 @@ def chatbot(net, sess, chars, vocab, max_length, beam_width, relevance, temperat
     s.listen(5) 
     print("socket is listening") 
 
-    # a forever loop until client wants to exit 
+    c, addr = signup_login(s)
+    print("Signed in")
     while True: 
 
         # establish connection with client 
-        c, addr = s.accept() 
+        # c, addr = s.accept() 
         arg=(c,net, sess, chars, vocab, max_length, beam_width, relevance, temperature, topn)
         # lock acquired by client 
         print('Connected to :', addr[0], ':', addr[1]) 
 
         print_lock.acquire() 
-
-        # Start a new thread and return its identifier
-        # start_new_thread(threaded_send,(arg,),)
         start_new_thread(threaded_receive, (arg,))
     s.close()
         

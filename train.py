@@ -15,33 +15,33 @@ def main():
     "Must be run in Python 3.3 or later. You are running {}".format(sys.version)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', type=str, default='data/scotus',
+    parser.add_argument('--data_dir', type=str, default='data_new',
                        help='data directory containing input.txt')
-    parser.add_argument('--save_dir', type=str, default='models/new_save',
+    parser.add_argument('--save_dir', type=str, default='models',
                        help='directory for checkpointed models (load from here if one is already present)')
-    parser.add_argument('--block_size', type=int, default=2048,
+    parser.add_argument('--block_size', type=int, default=1024,
                        help='number of cells per block')
-    parser.add_argument('--num_blocks', type=int, default=3,
+    parser.add_argument('--num_blocks', type=int, default=2,
                        help='number of blocks per layer')
-    parser.add_argument('--num_layers', type=int, default=3,
+    parser.add_argument('--num_layers', type=int, default=2,
                        help='number of layers')
-    parser.add_argument('--model', type=str, default='gru',
+    parser.add_argument('--model', type=str, default='lstm',
                        help='rnn, gru, lstm or nas')
-    parser.add_argument('--batch_size', type=int, default=40,
+    parser.add_argument('--batch_size', type=int, default=20,
                        help='minibatch size')
     parser.add_argument('--seq_length', type=int, default=40,
                        help='RNN sequence length')
-    parser.add_argument('--num_epochs', type=int, default=50,
+    parser.add_argument('--num_epochs', type=int, default=10000,
                        help='number of epochs')
-    parser.add_argument('--save_every', type=int, default=5000,
+    parser.add_argument('--save_every', type=int, default=500,
                        help='save frequency')
     parser.add_argument('--grad_clip', type=float, default=5.,
                        help='clip gradients at this value')
-    parser.add_argument('--learning_rate', type=float, default=1e-5,
+    parser.add_argument('--learning_rate', type=float, default=1e-4,
                        help='learning rate')
     parser.add_argument('--decay_rate', type=float, default=0.975,
                        help='how much to decay the learning rate')
-    parser.add_argument('--decay_steps', type=int, default=100000,
+    parser.add_argument('--decay_steps', type=int, default=1000,
                        help='how often to decay the learning rate')
     parser.add_argument('--set_learning_rate', type=float, default=-1,
                        help='reset learning rate to this value (if greater than zero)')
@@ -105,9 +105,10 @@ def train(args):
                 global_epoch_fraction,
                 datetime.timedelta(seconds=float(global_seconds_elapsed)),
                 sess.run(model.lr)))
-        if (args.set_learning_rate > 0):
-            sess.run(tf.assign(model.lr, args.set_learning_rate))
-            print("Reset learning rate to {}".format(args.set_learning_rate))
+        print(args.learning_rate)
+        if (args.learning_rate > 0):
+            sess.run(tf.assign(model.lr, args.learning_rate))
+            print("Reset learning rate to {}".format(args.learning_rate))
         data_loader.cue_batch_pointer_to_epoch_fraction(global_epoch_fraction)
         initial_batch_step = int((global_epoch_fraction
                 - int(global_epoch_fraction)) * data_loader.total_batch_count)
@@ -157,7 +158,7 @@ def train(args):
                     writer.add_summary(summary, e * batch_range[1] + b + 1)
                     if avg_steps < 100: avg_steps += 1
                     avg_loss = 1 / avg_steps * train_loss + (1 - 1 / avg_steps) * avg_loss
-                    print("{:,d} / {:,d} (epoch {:.3f} / {}), loss {:.3f} (avg {:.3f}), {:.3f}s" \
+                    print("{:,d} / {:,d} (epoch {:.3f} / {}), loss {} (avg {}), {}s" \
                         .format(b, batch_range[1], e + b / batch_range[1], epoch_range[1],
                             train_loss, avg_loss, elapsed))
                     # Every save_every batches, save the model to disk.

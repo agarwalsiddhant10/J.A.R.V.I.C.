@@ -7,8 +7,8 @@ print_lock = threading.Lock()
 
 def send_msg(server, file_name):
     while True:
-        file_server = open("data/" + file_name + "_server.txt", "a")
-        file_data = open("data/" + file_name + "_data.txt","a")
+        file_server = open(file_name + "_server.txt", "a")
+        file_data = open(file_name + "_data.txt","a")
         msg = input("\n")
         server.send_msg(msg)
         file_server.write(msg + "\n")
@@ -18,8 +18,8 @@ def send_msg(server, file_name):
         
 def recieve_msg(server, file_name):
     while True:
-        file_client = open("data/" + file_name + "_client.txt", "a")
-        file_data = open("data/" + file_name + "_data.txt", "a")
+        file_client = open(file_name + "_client.txt", "a")
+        file_data = open(file_name + "_data.txt", "a")
         msg = server.recieve_msg()
         if msg == "Nan":
             print_lock.release()
@@ -44,7 +44,7 @@ def main():
     host = '10.145.234.243'
     port = 2003
 
-    file_name = "Siddhant_Rajat_Happy" #<Server>_<Client>_<Emotion of the client>
+    file_name = "Siddhant_Yash_Sad" #<Server>_<Client>_<Emotion of the client>
     server = Server(host, port)
     server.initialise_connection()
     chat(server, file_name)
